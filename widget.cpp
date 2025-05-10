@@ -11,9 +11,13 @@ Widget::Widget(QWidget *parent) :
     // 初始化界面
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     
+    mainLayout->setContentsMargins(0, 0, 0, 0); // 移除主布局的外边距
+    mainLayout->setSpacing(0); // 移除布局内控件间的间距
+    
     // 图像显示区域
     displayLabel = new QLabel(this);
     displayLabel->setAlignment(Qt::AlignCenter);
+    displayLabel->setFrameShape(QFrame::NoFrame); // 移除边框
     displayLabel->setMinimumSize(10, 10);
     //displayLabel->setFrameShape(QFrame::Box);
     displayLabel->setWordWrap(true);
@@ -36,6 +40,12 @@ Widget::Widget(QWidget *parent) :
     
     
     setTop(1); // 置顶
+    
+    
+    // 隐藏标题栏（无边框窗口）
+//    setWindowFlags(Qt::FramelessWindowHint);
+    
+//    setStyleSheet("QMainWindow { border: 1px solid #ccc; border-radius: 4px; }");
 }
 
 Widget::~Widget(){
@@ -184,6 +194,7 @@ void Widget::pasteFromClipboard()
         currentImage = clipboard->image();
         if (!currentImage.isNull()) {
             updateImageDisplay();
+            adjustWindowToImage(); // 调整窗口大小
             return;
         }
     }
@@ -231,3 +242,30 @@ void Widget::updateImageDisplay()
     // 显示图像
     displayLabel->setPixmap(QPixmap::fromImage(scaledImage));
 }
+
+void Widget::adjustWindowToImage()
+{
+    if (currentImage.isNull()) {
+        return;  // 如果没有当前图像，不做任何操作
+    }
+
+    // 获取当前图像的显示大小（考虑缩放因子）
+    QSize imageSize = currentImage.size() * imageScaleFactor / 100;
+    
+    // 计算窗口边框和布局的额外空间
+    int frameWidth = this->frameGeometry().width() - this->width();
+    int frameHeight = this->frameGeometry().height() - this->height();
+    
+    frameWidth = frameHeight = 0; // 现在不考虑边框 直接占满界面
+
+    // 设置新的窗口大小
+    resize(imageSize.width() + frameWidth, imageSize.height() + frameHeight);
+    
+    // 确保窗口不会超出屏幕
+    QSize screenSize = QApplication::primaryScreen()->availableSize();
+    if (width() > screenSize.width() || height() > screenSize.height()) {
+        resize(screenSize * 0.8);  // 如果太大，缩放到屏幕的80%
+    }
+}
+
+

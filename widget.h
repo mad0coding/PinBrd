@@ -13,7 +13,9 @@
 #include <QString>
 #include <QKeyEvent>
 #include <QProcess>
-
+#include <QApplication>
+#include <QSize>
+#include <QScreen>
 
 namespace Ui {
 class Widget;
@@ -40,7 +42,22 @@ public slots:
     
     void pasteFromClipboard(); // 从剪贴板粘贴内容
     void setImageScale(int scalePercent); // 设置图像缩放比例(百分比)
-  
+    void adjustWindowToImage(); // 自动调整窗口大小以适应图片
+protected:
+    void mousePressEvent(QMouseEvent *event) override {
+        if (event->button() == Qt::LeftButton) {
+            m_dragPos = event->globalPos() - frameGeometry().topLeft();
+            event->accept();
+        }
+    }
+    void mouseMoveEvent(QMouseEvent *event) override {
+        if (event->buttons() & Qt::LeftButton) {
+            move(event->globalPos() - m_dragPos);
+            event->accept();
+        }
+    }
+private:
+    QPoint m_dragPos;
     
 private:
     Ui::Widget *ui;
