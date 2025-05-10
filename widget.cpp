@@ -27,6 +27,7 @@ Widget::Widget(QWidget *parent) :
     textDisplay->setReadOnly(true);
     textDisplay->setWordWrapMode(QTextOption::WordWrap);
     textDisplay->setVisible(false);
+    textDisplay->setFocusPolicy(Qt::NoFocus);
     
     // 粘贴按钮
     //QPushButton *pasteButton = new QPushButton("Paste", this);
@@ -52,13 +53,6 @@ Widget::~Widget(){
     delete ui;
 }
 
-void launchNewInstance()
-{
-    QProcess process;
-    QString programPath = QApplication::applicationFilePath(); // 获取当前exe路径
-    process.startDetached(programPath); // 启动新进程（独立运行）
-}
-
 void Widget::setTop(uint8_t top) // 是否置顶
 {
     if(top == 0) ifTop = false;
@@ -68,16 +62,68 @@ void Widget::setTop(uint8_t top) // 是否置顶
     Qt::WindowFlags flags = windowFlags();
     if(ifTop){
         flags |= Qt::WindowStaysOnTopHint;
-        this->setWindowTitle("PinBrd V0.5 (Top)");
+        this->setWindowTitle("PinBrd V0.5");
     }
     else{
         flags &= ~Qt::WindowStaysOnTopHint;
-        this->setWindowTitle("PinBrd V0.5 (UnTop)");
+        this->setWindowTitle("pinBrd V0.5");
     }
 
     hide(); // 先隐藏
     setWindowFlags(flags);
     show(); // 再显示
+}
+
+void Widget::setTitleBarVisible(uint8_t title)
+{
+    if(title == 0) ifTitle = false;
+    else if(title == 1) ifTitle = true;
+    else ifTitle = !ifTitle;
+    
+    // 获取当前窗口标志
+    Qt::WindowFlags flags = windowFlags();
+    bool wasVisible = isVisible();
+    
+    if (ifTitle) {
+        // 显示标题栏
+        flags |= Qt::WindowTitleHint | Qt::WindowSystemMenuHint | 
+                Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint;
+        flags &= ~Qt::FramelessWindowHint;
+        
+        // 恢复正常背景
+        setAttribute(Qt::WA_TranslucentBackground, false);
+        setStyleSheet("");  // 清除样式表
+    } else {
+        // 隐藏标题栏
+        flags |= Qt::FramelessWindowHint;
+        flags &= ~(Qt::WindowTitleHint | Qt::WindowSystemMenuHint | 
+                  Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+        
+        // 设置阴影效果
+        setAttribute(Qt::WA_TranslucentBackground);
+        setStyleSheet(
+            "Widget {"
+            "    background: transparent;"
+            "    padding: 6px;"
+            "}"
+            "QWidget#centralWidget {"
+            "    background: white;"
+            "    border: 1px solid #CCCCCC;"
+            "    border-radius: 2px;"
+            "    margin: 0px;"
+            "    box-shadow: 3px 3px 10px rgba(0,0,0,0.2);"
+            "}"
+        );
+    }
+    
+    // 保持窗口可见状态
+    if (wasVisible) {
+        hide();
+        setWindowFlags(flags);
+        show();
+    } else {
+        setWindowFlags(flags);
+    }
 }
 
 uint8_t Widget::key_to_USB(int key, int Vkey) // QT键值转USB键值
@@ -144,18 +190,34 @@ uint8_t Widget::key_to_USB(int key, int Vkey) // QT键值转USB键值
 void Widget::keyHandle(uint8_t keyValue, bool ifPress) // 按键处理
 {
     //printf("0x%02X  %d  %d\n", func, keyValue, ifPress);
+    
+    if(!ifPress) return; // 释放沿 跳过
+    
+    // 快捷键处理
     if(func & 0x01){ // Ctrl
-        if(keyValue == 17) launchNewInstance(); // Ctrl+N 打开新进程
-        else if(keyValue == 23) setTop(0xFF); // Ctrl+T Top/UnTop
+        if(keyValue == 20) this->close(); // Ctrl+Q 关闭自己
         else if(keyValue == 25) pasteFromClipboard(); // Ctrl+V 粘贴
     }
+    if(keyValue == 5){ // B 边框
+        setTitleBarVisible(0xFF);
+    }
+    else if(keyValue == 9){ // F 尺寸自适应
+        adjustWindowToImage();
+    }
+    else if(keyValue == 17){ // N 打开新进程
+        QProcess process;
+        QString exePath = QApplication::applicationFilePath(); // 获取当前exe路径
+        process.startDetached(exePath); // 启动新进程 独立运行
+    }
+    else if(keyValue == 23) setTop(0xFF); // T Top/UnTop
+    
+    func = 0; // 测试代码!!!
 }
 
 void Widget::keyPressEvent(QKeyEvent *event) // 按键按下
 {
     if(!isActiveWindow()){ // 若当前为非活动窗口则可能发生切屏
         func = 0;
-        keyHandle(0, 0);
         return; // 舍弃键值直接返回
     }
     if(event->isAutoRepeat()) return;//若为自动重复触发或正在发送数据则返回
@@ -256,7 +318,7 @@ void Widget::adjustWindowToImage()
     int frameWidth = this->frameGeometry().width() - this->width();
     int frameHeight = this->frameGeometry().height() - this->height();
     
-    frameWidth = frameHeight = 0; // 现在不考虑边框 直接占满界面
+    frameWidth = frameHeight = 2; // 现在不考虑边框 直接占满界面
 
     // 设置新的窗口大小
     resize(imageSize.width() + frameWidth, imageSize.height() + frameHeight);

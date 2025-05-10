@@ -33,6 +33,7 @@ public:
     
     uint8_t func = 0;
     bool ifTop = true; // 是否置顶
+    bool ifTitle = true; // 是否有标题栏
   
     
 public slots:
@@ -63,6 +64,7 @@ private:
     Ui::Widget *ui;
     
     void setTop(uint8_t top); // 是否置顶
+    void setTitleBarVisible(uint8_t title); // 控制标题栏显示
     uint8_t key_to_USB(int key, int Vkey); // QT键值转USB键值
     
     void updateImageDisplay();  // 更新图像显示

@@ -1,12 +1,12 @@
 
 
-
-
-
-按键操作：
-Ctrl+N：开启新页面
-Ctrl+T：切换置顶
-Ctrl+V：粘贴
+键盘操作：
+B	Border	边框
+F	Fit	尺寸自适应
+N	New	打开新进程
+T	Top	Top/UnTop
+Ctrl+Q	Quit	退出
+Ctrl+V		粘贴
 
 
 
