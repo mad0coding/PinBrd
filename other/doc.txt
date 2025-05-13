@@ -1,18 +1,20 @@
 
 
 键盘操作：
-B	Border	边框
-F	Fit	尺寸自适应
-N	New	打开新进程
-T	Top	Top/UnTop
-Ctrl+Q	Quit	退出
-Ctrl+V		粘贴
+B		Border	边框
+F		Fit	尺寸自适应
+Ctrl+F		Fit	尺寸自适应 无轮廓
+N		New	打开新进程
+T		Top	切换置顶
+Ctrl+V			粘贴
+Esc		Escape	退出
+Ctrl+Q		Quit	退出
+中键点击			退出
+右键点击			最小化
+左键拖动			拖动图片
+上下键/滚轮		缩放图片
+左右键/Ctrl+滚轮		调整不透明度
 
-未确定的临时操作：
-除了文本框状态下，可以直接拖动界面
-鼠标右键点击最小化
-鼠标中键点击退出
-鼠标滚轮缩放图片
-Ctrl+鼠标滚轮调整界面不透明度
+
 
 

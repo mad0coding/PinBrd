@@ -24,10 +24,10 @@ Widget::Widget(QWidget *parent) :
     
     // 文本显示区域
     textDisplay = new QTextEdit(this);
-    textDisplay->setReadOnly(true);
+    //textDisplay->setReadOnly(true);
     textDisplay->setWordWrapMode(QTextOption::WordWrap);
     textDisplay->setVisible(false);
-    textDisplay->setFocusPolicy(Qt::NoFocus);
+    //textDisplay->setFocusPolicy(Qt::NoFocus);
     
     mainLayout->addWidget(displayLabel);
     mainLayout->addWidget(textDisplay);
@@ -175,43 +175,62 @@ uint8_t Widget::key_to_USB(int key, int Vkey) // QT键值转USB键值
     return 0;
 }
 
-void Widget::keyHandle(uint8_t keyValue, bool ifPress) // 按键处理
+void Widget::keyHandle(uint8_t keyValue) // 按键处理
 {
     //printf("0x%02X  %d  %d\n", func, keyValue, ifPress);
     
-    if(!ifPress) return; // 释放沿 跳过
-    
-    uint8_t ctrl = func & 0x01, shift = func & 0x02;
+    uint8_t ctrl = func & 0x01, shift = func & 0x02; // 获取 ctrl shift 状态
     
     // 快捷键处理
-    if(keyValue == 20 && ctrl) this->close(); // Ctrl+Q 关闭自己
-    else if(keyValue == 25 && ctrl && !shift){ // Ctrl+V 粘贴
-        imageScaleFactor = 100;
-        pasteFromClipboard();
-    }
-    else if(keyValue == 25 && ctrl && shift) pasteFromClipboard(); // Ctrl+Shift+V 粘贴
-    else if(keyValue == 5){ // B 边框
+    switch (keyValue) { // 键值
+    case kv_B: // 边框
         setTitleBarVisible(0xFF); // 切换边框显示
-    }
-    else if(keyValue == 9){ // F 尺寸自适应
-        adjustWindowToImage();
-    }
-    else if(keyValue == 17){ // N 打开新进程
-        QProcess process;
-        QString exePath = QApplication::applicationFilePath(); // 获取当前exe路径
-        process.startDetached(exePath); // 启动新进程 独立运行
-    }
-    else if(keyValue == 23) setTop(0xFF); // T Top/UnTop
-    else if((keyValue == 79 || keyValue == 80) && ctrl){ // Ctrl+→键←键 调整不透明度 测试代码!!!
-        if(keyValue == 80 && opacity > 1) opacity--;
-        else if(keyValue == 79 && opacity < 10) opacity++;
-        setWindowOpacity((double)opacity / 10); // 修改不透明度
-    }
-    else if((keyValue == 79 || keyValue == 80) && !ctrl){ // →键←键/*↓键↑键*/ 调整缩放 测试代码!!!
-        if(keyValue == 80 && imageScaleFactor > 20) imageScaleFactor -= 10;
-        else if(keyValue == 79 && opacity < 490) imageScaleFactor += 10;
-        setImageScale(imageScaleFactor);
-        adjustWindowToImage();
+        break;
+    case kv_F: // 尺寸自适应
+        adjustWindowToImage(ctrl ? 0 : 2); // 有ctrl则取消轮廓
+        break;
+    case kv_N: // 打开新进程
+        QProcess::startDetached(QApplication::applicationFilePath()); // 获取当前exe路径并启动新进程 独立运行
+        break;
+    case kv_T: // 切换置顶
+        setTop(0xFF);
+        break;
+    case kv_V: // 粘贴
+        if(!ctrl) break;
+        if(!shift) imageScaleFactor = 100; // 重置缩放
+        pasteFromClipboard();
+        break;
+    case kv_Q: // 退出
+        if(!ctrl) break; // 有ctrl才执行下面
+    case kv_esc:
+    case kv_mouse_m: // 退出
+        this->close(); // 关闭自己
+        break;
+    case kv_left:
+    case kv_right: // 不透明度
+        break;
+    case kv_up:
+    case kv_down: // 缩放
+        break;
+    case kv_wheel_down:
+    case kv_wheel_up: // 不透明度/缩放
+        if(ctrl){ // 不透明度
+            if(keyValue == kv_wheel_down && opacity > 1) opacity--;
+            else if(keyValue == kv_wheel_up && opacity < 10) opacity++;
+            setWindowOpacity((double)opacity / 10); // 修改不透明度
+        }
+        else{ // 缩放
+            if(keyValue == kv_wheel_down && imageScaleFactor > 20) imageScaleFactor -= 10;
+            else if(keyValue == kv_wheel_up && imageScaleFactor < 490) imageScaleFactor += 10;
+            setImageScale(imageScaleFactor);
+            adjustWindowToImage(2);
+        }
+        break;
+    case kv_mouse_r: // 最小化
+        showMinimized();
+        break;
+    default:
+        break;
     }
     
     //func = 0; // 测试代码!!!
@@ -230,7 +249,7 @@ void Widget::keyPressEvent(QKeyEvent *event) // 按键按下
     uint8_t keyValue = key_to_USB(key1, key2); // 映射到USB键值
     
     if(keyValue >= 249 && keyValue <= 252) func |= 0x01 << (keyValue - 249);
-    else keyHandle(keyValue, 1);
+    else keyHandle(keyValue);
 }
 
 void Widget::keyReleaseEvent(QKeyEvent *event) // 按键抬起
@@ -242,7 +261,6 @@ void Widget::keyReleaseEvent(QKeyEvent *event) // 按键抬起
     uint8_t keyValue = key_to_USB(key1, key2);//映射到USB键值
     
     if(keyValue >= 249 && keyValue <= 252) func &= ~(0x01 << (keyValue - 249));
-    //else keyHandle(keyValue, 0);
 }
 
 
@@ -254,18 +272,19 @@ void Widget::pasteFromClipboard()
     displayLabel->setVisible(true);
     textDisplay->setVisible(false);
     
-    // 检查剪贴板中是否有图像
-    if (clipboard->mimeData()->hasImage()) {
+    // 检查剪贴板内容
+    if(clipboard->mimeData()->hasImage()){ // 有图像
         currentImage = clipboard->image();
-        if (!currentImage.isNull()) {
+        if(!currentImage.isNull()){
             updateImageDisplay();
-            adjustWindowToImage(); // 调整窗口大小
+            adjustWindowToImage(2); // 调整窗口大小
             return;
         }
     }
-    
-    // 检查剪贴板中是否有文本
-    if (clipboard->mimeData()->hasText()) {
+    else if(clipboard->mimeData()->hasUrls()){ // 有文件路径
+        printf("png\n");
+    }
+    else if(clipboard->mimeData()->hasText()){ // 有文本
         QString text = clipboard->text();
         if (!text.isEmpty()) {
             displayLabel->setVisible(false);
@@ -308,7 +327,7 @@ void Widget::updateImageDisplay()
     displayLabel->setPixmap(QPixmap::fromImage(scaledImage));
 }
 
-void Widget::adjustWindowToImage()
+void Widget::adjustWindowToImage(int frame)
 {
     if (currentImage.isNull()) {
         return;  // 如果没有当前图像，不做任何操作
@@ -321,7 +340,7 @@ void Widget::adjustWindowToImage()
     int frameWidth = this->frameGeometry().width() - this->width();
     int frameHeight = this->frameGeometry().height() - this->height();
     
-    frameWidth = frameHeight = 2; // 现在不考虑边框 直接占满界面
+    frameWidth = frameHeight = frame; // 预留frame宽度
 
     // 设置新的窗口大小
     resize(imageSize.width() + frameWidth, imageSize.height() + frameHeight);
