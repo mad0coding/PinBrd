@@ -15,22 +15,23 @@ Widget::Widget(QWidget *parent) :
     mainLayout->setSpacing(0); // 移除布局内控件间的间距
     
     // 图像显示区域
-    displayLabel = new QLabel(this);
-    displayLabel->setAlignment(Qt::AlignCenter);
-    displayLabel->setFrameShape(QFrame::NoFrame); // 移除边框
-    displayLabel->setMinimumSize(10, 10);
-    //displayLabel->setFrameShape(QFrame::Box);
-    displayLabel->setWordWrap(true);
+    lb_main = new QLabel(this);
+    lb_main->setAlignment(Qt::AlignCenter);
+    lb_main->setFrameShape(QFrame::NoFrame); // 移除边框
+    lb_main->setMinimumSize(10, 10);
+    //lb_main->setFrameShape(QFrame::Box);
+    lb_main->setWordWrap(true);
     
     // 文本显示区域
-    textDisplay = new QTextEdit(this);
-    //textDisplay->setReadOnly(true);
-    textDisplay->setWordWrapMode(QTextOption::WordWrap);
-    textDisplay->setVisible(false);
-    //textDisplay->setFocusPolicy(Qt::NoFocus);
+    txtEdit_main = new QTextEdit(this);
+    txtEdit_main->setReadOnly(true);
+    txtEdit_main->setWordWrapMode(QTextOption::WordWrap);
+    txtEdit_main->setVisible(false);
+    txtEdit_main->setFocusPolicy(Qt::NoFocus);
+    txtEdit_main->setAttribute(Qt::WA_TransparentForMouseEvents); // 鼠标事件可穿透
     
-    mainLayout->addWidget(displayLabel);
-    mainLayout->addWidget(textDisplay);
+    mainLayout->addWidget(lb_main);
+    mainLayout->addWidget(txtEdit_main);
     
     
     setTop(1); // 置顶
@@ -50,11 +51,11 @@ void Widget::setTop(uint8_t top) // 是否置顶
     Qt::WindowFlags flags = windowFlags();
     if(ifTop){
         flags |= Qt::WindowStaysOnTopHint;
-        this->setWindowTitle("PinBrd V0.5");
+        this->setWindowTitle(Title + Version);
     }
     else{
         flags &= ~Qt::WindowStaysOnTopHint;
-        this->setWindowTitle("pinBrd V0.5");
+        this->setWindowTitle(title + Version);
     }
 
     hide(); // 先隐藏
@@ -197,7 +198,7 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
         break;
     case kv_V: // 粘贴
         if(!ctrl) break;
-        if(!shift) imageScaleFactor = 100; // 重置缩放
+        if(!shift) imgScale = 100; // 重置缩放
         pasteFromClipboard();
         break;
     case kv_Q: // 退出
@@ -208,6 +209,7 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
         break;
     case kv_left:
     case kv_right: // 不透明度
+        setWinOpacity(MODE_CHANGE, keyValue == kv_right ? 1 : -1); // 修改窗口不透明度
         break;
     case kv_up:
     case kv_down: // 缩放
@@ -215,19 +217,15 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
     case kv_wheel_down:
     case kv_wheel_up: // 不透明度/缩放
         if(ctrl){ // 不透明度
-            if(keyValue == kv_wheel_down && opacity > 1) opacity--;
-            else if(keyValue == kv_wheel_up && opacity < 10) opacity++;
-            setWindowOpacity((double)opacity / 10); // 修改不透明度
+            setWinOpacity(MODE_CHANGE, keyValue == kv_wheel_up ? 1 : -1); // 修改窗口不透明度
         }
         else{ // 缩放
-            if(keyValue == kv_wheel_down && imageScaleFactor > 20) imageScaleFactor -= 10;
-            else if(keyValue == kv_wheel_up && imageScaleFactor < 490) imageScaleFactor += 10;
-            setImageScale(imageScaleFactor);
+            setImgScale(MODE_CHANGE, keyValue == kv_wheel_up ? 10 : -10);
             adjustWindowToImage(2);
         }
         break;
     case kv_mouse_r: // 最小化
-        showMinimized();
+        showMinimized(); // 窗口最小化
         break;
     default:
         break;
@@ -269,74 +267,103 @@ void Widget::pasteFromClipboard()
     QClipboard *clipboard = QApplication::clipboard();
     
     // 先隐藏所有显示区域
-    displayLabel->setVisible(true);
-    textDisplay->setVisible(false);
+//    lb_main->setVisible(true);
+//    txtEdit_main->setVisible(false);
+    
+    bool hasImg = false;
     
     // 检查剪贴板内容
-    if(clipboard->mimeData()->hasImage()){ // 有图像
-        currentImage = clipboard->image();
-        if(!currentImage.isNull()){
-            updateImageDisplay();
-            adjustWindowToImage(2); // 调整窗口大小
-            return;
+    do{
+        if(clipboard->mimeData()->hasImage()){ // 有图像
+            mainImage = clipboard->image();
         }
-    }
-    else if(clipboard->mimeData()->hasUrls()){ // 有文件路径
-        printf("png\n");
-    }
-    else if(clipboard->mimeData()->hasText()){ // 有文本
-        QString text = clipboard->text();
-        if (!text.isEmpty()) {
-            displayLabel->setVisible(false);
-            textDisplay->setVisible(true);
-            textDisplay->setPlainText(text);
-            return;
+        else if(clipboard->mimeData()->hasUrls()){ // 有文件路径
+            QUrl url = clipboard->mimeData()->urls().at(0); // 只取第一个
+            QString filePath = url.toLocalFile(); // 转文件路径
+            QFileInfo fileInfo(filePath);
+            QString suffix = fileInfo.suffix().toLower();
+            if(!fileInfo.exists() || !fileInfo.isFile()) break; // 文件不存在或不是普通文件
+            
+            static const QStringList imageExtensions = { // 支持的图片扩展名列表
+                "png", "jpg", "jpeg", "bmp", "webp", "gif", "tiff"
+            };
+            if(!imageExtensions.contains(suffix)) break; // 扩展名不匹配
+            
+            QImage tmpImage;
+            if(!tmpImage.load(filePath)) break; // 加载失败
+            mainImage = tmpImage;
         }
+        else break;
+        if(!mainImage.isNull()) mainTxt = ""; // 清空文本
+        hasImg = true;
+    } while (0);
+    if(!hasImg && clipboard->mimeData()->hasText()){ // 无图像 有文本
+        mainTxt = clipboard->text();
+        if(!mainTxt.isEmpty()) mainImage = QImage(); // 清空图像
     }
     
-    // 如果没有有效内容
-    displayLabel->setText("剪贴板中没有可显示的文本或图像");
-    displayLabel->setPixmap(QPixmap());
+    // 显示
+    if(!mainImage.isNull()){ // 有图像
+        txtEdit_main->setVisible(false); // 隐藏文本显示
+        lb_main->setVisible(true); // 启用图像显示
+        updateImageDisplay();
+        adjustWindowToImage(2); // 调整窗口大小
+    }
+    else if(!mainTxt.isEmpty()){ // 有文本
+        lb_main->setVisible(false); // 隐藏图像显示
+        txtEdit_main->setVisible(true); // 启用文本显示
+        txtEdit_main->setPlainText(mainTxt); // 设置文本
+    }
+    else{ // 都没有
+        lb_main->setText("剪贴板中没有可显示的文本或图像"); // 测试代码!!!
+        lb_main->setPixmap(QPixmap());
+    }
 }
 
-void Widget::setImageScale(int scalePercent)
+void Widget::setImgScale(uint8_t mode, int value) // 设置图像缩放
 {
-    if (scalePercent < 10) scalePercent = 10;  // 最小缩放10%
-    if (scalePercent > 500) scalePercent = 500;  // 最大缩放500%
+    if(mode == MODE_CHANGE) imgScale += value; // 增量式
+    else if(mode == MODE_SET) imgScale = value; // 赋值式
     
-    imageScaleFactor = scalePercent;
+    imgScale = LIMIT(imgScale, 10, 500); // 范围10%~500%
     
-    if (!currentImage.isNull()) {
-        updateImageDisplay();
-    }
+    if(!mainImage.isNull()) updateImageDisplay();
+}
+
+void Widget::setWinOpacity(uint8_t mode, int value) // 设置窗口不透明度
+{
+    if(mode == MODE_CHANGE) winOpacity += value; // 增量式
+    else if(mode == MODE_SET) winOpacity = value; // 赋值式
+    
+    winOpacity = LIMIT(winOpacity, 1, 10); // 范围1/10~10/10
+    
+    setWindowOpacity((double)winOpacity / 10); // 设置窗口不透明度
 }
 
 void Widget::updateImageDisplay()
 {
     // 计算缩放后的尺寸
-    QSize scaledSize = currentImage.size() * imageScaleFactor / 100;
+    QSize scaledSize = mainImage.size() * imgScale / 100;
     
     // 缩放图像并保持宽高比
-    QImage scaledImage = currentImage.scaled(
+    QImage scaledImage = mainImage.scaled(
         scaledSize,
         Qt::KeepAspectRatio,
         Qt::SmoothTransformation
     );
     
     // 显示图像
-    displayLabel->setPixmap(QPixmap::fromImage(scaledImage));
+    lb_main->setPixmap(QPixmap::fromImage(scaledImage));
 }
 
 void Widget::adjustWindowToImage(int frame)
 {
-    if (currentImage.isNull()) {
-        return;  // 如果没有当前图像，不做任何操作
-    }
+    if(mainImage.isNull()) return; // 如果没有当前图像 不做任何操作
 
-    // 获取当前图像的显示大小（考虑缩放因子）
-    QSize imageSize = currentImage.size() * imageScaleFactor / 100;
+    // 获取当前图像的显示大小(考虑缩放因子)
+    QSize imageSize = mainImage.size() * imgScale / 100;
     
-    // 计算窗口边框和布局的额外空间
+    // 计算窗口边框和布局的额外空间 这个暂时无视
     int frameWidth = this->frameGeometry().width() - this->width();
     int frameHeight = this->frameGeometry().height() - this->height();
     
@@ -346,10 +373,10 @@ void Widget::adjustWindowToImage(int frame)
     resize(imageSize.width() + frameWidth, imageSize.height() + frameHeight);
     
     // 确保窗口不会超出屏幕
-    QSize screenSize = QApplication::primaryScreen()->availableSize();
-    if (width() > screenSize.width() || height() > screenSize.height()) {
-        resize(screenSize * 0.8);  // 如果太大，缩放到屏幕的80%
-    }
+//    QSize screenSize = QApplication::primaryScreen()->availableSize();
+//    if (width() > screenSize.width() || height() > screenSize.height()) {
+//        resize(screenSize * 0.8);  // 如果太大，缩放到屏幕的80%
+//    }
 }
 
 

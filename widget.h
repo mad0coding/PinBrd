@@ -16,6 +16,16 @@
 #include <QApplication>
 #include <QSize>
 #include <QScreen>
+#include <QFileInfo>
+
+
+#define MIN(x, y)			((x) < (y) ? (x) : (y))
+#define MAX(x, y)			((x) > (y) ? (x) : (y))
+#define LIMIT(x, min, max)	(MIN(MAX(x, min), max))
+
+#define MODE_SET			0
+#define MODE_CHANGE			1
+
 
 #define kv_A			4
 #define kv_B			5
@@ -81,21 +91,36 @@ public:
     explicit Widget(QWidget *parent = 0);
     ~Widget();
     
-    QString Title = "PinBrd V0.5";
+    QString Title = "PinBrd", title = "pinBrd", Version = "V0.6"; // 标题名称和版本
+    
+private:
+    QLabel *lb_main = NULL; // 显示图像
+    QTextEdit *txtEdit_main = NULL; // 显示文本
+    QImage mainImage; // 存储图像
+    QString mainTxt; // 存储文本
     
     uint8_t func = 0;
     bool ifTop = true; // 是否置顶
     bool ifTitle = true; // 是否有标题栏
-    uint8_t opacity = 10; // 不透明度
     
-public slots:
+    int imgScale = 100; // 图像缩放 默认100%
+    int winOpacity = 10; // 窗口不透明度 默认10/10
+    
+    
+    void setTop(uint8_t top); // 是否置顶
+    void setTitleBarVisible(uint8_t title); // 控制标题栏显示
+    uint8_t key_to_USB(int key, int Vkey); // QT键值转USB键值
+    
+    void updateImageDisplay(); // 更新图像显示
+    void pasteFromClipboard(); // 从剪贴板粘贴内容
+    void adjustWindowToImage(int frame); // 自动调整窗口大小以适应图片
+    void setImgScale(uint8_t mode, int value); // 设置图像缩放
+    void setWinOpacity(uint8_t mode, int value); // 设置窗口不透明度
+    
     void keyHandle(uint8_t keyValue); // 按键处理
+public slots:
     void keyPressEvent(QKeyEvent *event); // 按键按下
     void keyReleaseEvent(QKeyEvent *event); // 按键抬起
-    
-    void pasteFromClipboard(); // 从剪贴板粘贴内容
-    void setImageScale(int scalePercent); // 设置图像缩放比例(百分比)
-    void adjustWindowToImage(int frame); // 自动调整窗口大小以适应图片
     
 protected:
     void mousePressEvent(QMouseEvent *event) override {
@@ -140,32 +165,16 @@ protected:
         if(!angleDelta.isNull()){
             if(angleDelta.y() > 0){ // 放大或上翻页
                 keyHandle(kv_wheel_up); // 按键处理
-                //printf("wheelUp\n");
             }
             else{ // 缩小或下翻页
                 keyHandle(kv_wheel_down); // 按键处理
-                //printf("wheelDown\n");
             }
         }
-
         event->accept();  // 标记事件已处理
     }
 private:
-    QPoint m_dragPos;
-    
-private:
     Ui::Widget *ui;
-    
-    void setTop(uint8_t top); // 是否置顶
-    void setTitleBarVisible(uint8_t title); // 控制标题栏显示
-    uint8_t key_to_USB(int key, int Vkey); // QT键值转USB键值
-    
-    void updateImageDisplay(); // 更新图像显示
-    
-    QLabel *displayLabel;
-    QTextEdit *textDisplay;
-    QImage currentImage;
-    int imageScaleFactor = 100; // 默认100%缩放
+    QPoint m_dragPos;
 };
 
 #endif // WIDGET_H

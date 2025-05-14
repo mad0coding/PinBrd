@@ -6,7 +6,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     Widget mywidget;
-    mywidget.setWindowTitle(mywidget.Title); // 设置窗口名称
+    mywidget.setWindowTitle(mywidget.Title + mywidget.Version); // 设置窗口名称
     mywidget.show();
     mywidget.setFocusPolicy(Qt::StrongFocus);
     
