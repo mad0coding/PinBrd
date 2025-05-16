@@ -16,17 +16,17 @@ Widget::Widget(QWidget *parent) :
     
     // 图像显示区域
     lb_main = new QLabel(this);
+    lb_main->setWordWrap(true);
     lb_main->setAlignment(Qt::AlignCenter);
     lb_main->setFrameShape(QFrame::NoFrame); // 移除边框
     lb_main->setMinimumSize(10, 10);
     //lb_main->setFrameShape(QFrame::Box);
-    lb_main->setWordWrap(true);
     
     // 文本显示区域
     txtEdit_main = new QTextEdit(this);
-    txtEdit_main->setReadOnly(true);
-    txtEdit_main->setWordWrapMode(QTextOption::WordWrap);
     txtEdit_main->setVisible(false);
+    txtEdit_main->setWordWrapMode(QTextOption::WordWrap);
+    txtEdit_main->setReadOnly(true);
     txtEdit_main->setFocusPolicy(Qt::NoFocus);
     txtEdit_main->setAttribute(Qt::WA_TransparentForMouseEvents); // 鼠标事件可穿透
     
@@ -74,6 +74,7 @@ void Widget::setTitleBarVisible(uint8_t title)
     bool wasVisible = isVisible();
     
     if (ifTitle) {
+        txtEdit_main->setAttribute(Qt::WA_TransparentForMouseEvents, false); // 鼠标事件不可可穿透
         // 显示标题栏
         flags |= Qt::WindowTitleHint | Qt::WindowSystemMenuHint | 
                 Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint;
@@ -83,6 +84,7 @@ void Widget::setTitleBarVisible(uint8_t title)
         setAttribute(Qt::WA_TranslucentBackground, false);
         setStyleSheet("");  // 清除样式表
     } else {
+        txtEdit_main->setAttribute(Qt::WA_TransparentForMouseEvents); // 鼠标事件可穿透
         // 隐藏标题栏
         flags |= Qt::FramelessWindowHint;
         flags &= ~(Qt::WindowTitleHint | Qt::WindowSystemMenuHint | 
@@ -180,7 +182,9 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
 {
     //printf("0x%02X  %d  %d\n", func, keyValue, ifPress);
     
-    uint8_t ctrl = func & 0x01, shift = func & 0x02; // 获取 ctrl shift 状态
+    uint8_t ctrl = func & 0x01, shift = func & 0x02, alt = func & 0x04; // 获取 ctrl shift alt 状态
+    
+    int8_t dir = 0; // 方向
     
     // 快捷键处理
     switch (keyValue) { // 键值
@@ -188,7 +192,7 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
         setTitleBarVisible(0xFF); // 切换边框显示
         break;
     case kv_F: // 尺寸自适应
-        adjustWindowToImage(ctrl ? 0 : 2); // 有ctrl则取消轮廓
+        windowAdjust(ctrl ? 0 : 2); // 有ctrl则取消轮廓
         break;
     case kv_N: // 打开新进程
         QProcess::startDetached(QApplication::applicationFilePath()); // 获取当前exe路径并启动新进程 独立运行
@@ -199,7 +203,7 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
     case kv_V: // 粘贴
         if(!ctrl) break;
         if(!shift) imgScale = 100; // 重置缩放
-        pasteFromClipboard();
+        clipboardPaste();
         break;
     case kv_Q: // 退出
         if(!ctrl) break; // 有ctrl才执行下面
@@ -209,19 +213,36 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
         break;
     case kv_left:
     case kv_right: // 不透明度
-        setWinOpacity(MODE_CHANGE, keyValue == kv_right ? 1 : -1); // 修改窗口不透明度
+        dir = (keyValue == kv_right ? 1 : -1); // 向右为正
+        setWinOpacity(MODE_CHANGE, dir); // 修改窗口不透明度
         break;
     case kv_up:
     case kv_down: // 缩放
+        dir = (keyValue == kv_up ? 1 : -1); // 向上为正
         break;
     case kv_wheel_down:
     case kv_wheel_up: // 不透明度/缩放
+        dir = (keyValue == kv_wheel_up ? 1 : -1); // 向上为正
         if(ctrl){ // 不透明度
-            setWinOpacity(MODE_CHANGE, keyValue == kv_wheel_up ? 1 : -1); // 修改窗口不透明度
+            setWinOpacity(MODE_CHANGE, dir); // 修改窗口不透明度
+        }
+        else if(shift/* || alt*/){
+            if(displayCs == DISPLAY_TXT){
+                QScrollBar *horizontalBar = txtEdit_main->horizontalScrollBar(); // 水平滚动条
+                // 向下滚动 100 像素
+                horizontalBar->setValue(horizontalBar->value() + dir * (-55) * !ifTitle);
+            }
         }
         else{ // 缩放
-            setImgScale(MODE_CHANGE, keyValue == kv_wheel_up ? 10 : -10);
-            adjustWindowToImage(2);
+            if(displayCs == DISPLAY_IMG){
+                setImgScale(MODE_CHANGE, dir * 10);
+                windowAdjust(2);
+            }
+            else if(displayCs == DISPLAY_TXT){
+                QScrollBar *verticalBar = txtEdit_main->verticalScrollBar(); // 垂直滚动条
+                // 向下滚动 100 像素
+                verticalBar->setValue(verticalBar->value() + dir * (-60) * !ifTitle);
+            }
         }
         break;
     case kv_mouse_r: // 最小化
@@ -262,7 +283,7 @@ void Widget::keyReleaseEvent(QKeyEvent *event) // 按键抬起
 }
 
 
-void Widget::pasteFromClipboard()
+void Widget::clipboardPaste()
 {
     QClipboard *clipboard = QApplication::clipboard();
     
@@ -297,7 +318,11 @@ void Widget::pasteFromClipboard()
         if(!mainImage.isNull()) mainTxt = ""; // 清空文本
         hasImg = true;
     } while (0);
-    if(!hasImg && clipboard->mimeData()->hasText()){ // 无图像 有文本
+    if(!hasImg && clipboard->mimeData()->hasHtml()){ // 无图像 有富文本 测试代码!!!
+        mainTxt = clipboard->mimeData()->html();
+        if(!mainTxt.isEmpty()) mainImage = QImage(); // 清空图像
+    }
+    else if(!hasImg && clipboard->mimeData()->hasText()){ // 无图像 有文本
         mainTxt = clipboard->text();
         if(!mainTxt.isEmpty()) mainImage = QImage(); // 清空图像
     }
@@ -306,17 +331,21 @@ void Widget::pasteFromClipboard()
     if(!mainImage.isNull()){ // 有图像
         txtEdit_main->setVisible(false); // 隐藏文本显示
         lb_main->setVisible(true); // 启用图像显示
-        updateImageDisplay();
-        adjustWindowToImage(2); // 调整窗口大小
+        imageUpdate();
+        windowAdjust(2); // 调整窗口大小
+        displayCs = DISPLAY_IMG;
     }
     else if(!mainTxt.isEmpty()){ // 有文本
         lb_main->setVisible(false); // 隐藏图像显示
         txtEdit_main->setVisible(true); // 启用文本显示
-        txtEdit_main->setPlainText(mainTxt); // 设置文本
+        //txtEdit_main->setPlainText(mainTxt); // 设置文本
+        txtEdit_main->setHtml(mainTxt); // 设置Html文本
+        displayCs = DISPLAY_TXT;
     }
     else{ // 都没有
         lb_main->setText("剪贴板中没有可显示的文本或图像"); // 测试代码!!!
         lb_main->setPixmap(QPixmap());
+        displayCs = DISPLAY_NONE;
     }
 }
 
@@ -327,7 +356,7 @@ void Widget::setImgScale(uint8_t mode, int value) // 设置图像缩放
     
     imgScale = LIMIT(imgScale, 10, 500); // 范围10%~500%
     
-    if(!mainImage.isNull()) updateImageDisplay();
+    if(!mainImage.isNull()) imageUpdate();
 }
 
 void Widget::setWinOpacity(uint8_t mode, int value) // 设置窗口不透明度
@@ -340,7 +369,7 @@ void Widget::setWinOpacity(uint8_t mode, int value) // 设置窗口不透明度
     setWindowOpacity((double)winOpacity / 10); // 设置窗口不透明度
 }
 
-void Widget::updateImageDisplay()
+void Widget::imageUpdate()
 {
     // 计算缩放后的尺寸
     QSize scaledSize = mainImage.size() * imgScale / 100;
@@ -356,7 +385,7 @@ void Widget::updateImageDisplay()
     lb_main->setPixmap(QPixmap::fromImage(scaledImage));
 }
 
-void Widget::adjustWindowToImage(int frame)
+void Widget::windowAdjust(int frame)
 {
     if(mainImage.isNull()) return; // 如果没有当前图像 不做任何操作
 

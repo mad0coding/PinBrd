@@ -17,6 +17,8 @@
 #include <QSize>
 #include <QScreen>
 #include <QFileInfo>
+#include <QScrollBar>
+
 
 
 #define MIN(x, y)			((x) < (y) ? (x) : (y))
@@ -25,6 +27,10 @@
 
 #define MODE_SET			0
 #define MODE_CHANGE			1
+
+#define DISPLAY_NONE		0
+#define DISPLAY_IMG			1
+#define DISPLAY_TXT			2
 
 
 #define kv_A			4
@@ -99,6 +105,8 @@ private:
     QImage mainImage; // 存储图像
     QString mainTxt; // 存储文本
     
+    uint8_t displayCs = DISPLAY_NONE; // 当前显示选择 0无 1图像 2文本
+    
     uint8_t func = 0;
     bool ifTop = true; // 是否置顶
     bool ifTitle = true; // 是否有标题栏
@@ -111,9 +119,11 @@ private:
     void setTitleBarVisible(uint8_t title); // 控制标题栏显示
     uint8_t key_to_USB(int key, int Vkey); // QT键值转USB键值
     
-    void updateImageDisplay(); // 更新图像显示
-    void pasteFromClipboard(); // 从剪贴板粘贴内容
-    void adjustWindowToImage(int frame); // 自动调整窗口大小以适应图片
+    void clipboardPaste(); // 从剪贴板粘贴内容
+    
+    void imageUpdate(); // 更新图像显示
+    void windowAdjust(int frame); // 自动调整窗口大小以适应图片
+    
     void setImgScale(uint8_t mode, int value); // 设置图像缩放
     void setWinOpacity(uint8_t mode, int value); // 设置窗口不透明度
     
