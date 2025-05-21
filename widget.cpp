@@ -283,48 +283,66 @@ void Widget::keyReleaseEvent(QKeyEvent *event) // 按键抬起
 }
 
 
-void Widget::clipboardPaste()
+void Widget::clipboardPaste() // 从剪贴板粘贴内容
 {
-    QClipboard *clipboard = QApplication::clipboard();
+    QClipboard *clipboard = QApplication::clipboard(); // 获取剪贴板
     
-    // 先隐藏所有显示区域
-//    lb_main->setVisible(true);
-//    txtEdit_main->setVisible(false);
+    // 检查剪贴板
+    bool hasImage = clipboard->mimeData()->hasImage(); // 图像
+    bool hasUrls = clipboard->mimeData()->hasUrls(); // 路径
+    bool hasHtml = clipboard->mimeData()->hasHtml(); // 富文本
+    bool hasText = clipboard->mimeData()->hasText(); // 纯文本
     
-    bool hasImg = false;
+    QImage brdImage = QImage(), urlImage = QImage();
+    QString html = "", text = "";
     
-    // 检查剪贴板内容
-    do{
-        if(clipboard->mimeData()->hasImage()){ // 有图像
-            mainImage = clipboard->image();
-        }
-        else if(clipboard->mimeData()->hasUrls()){ // 有文件路径
-            QUrl url = clipboard->mimeData()->urls().at(0); // 只取第一个
-            QString filePath = url.toLocalFile(); // 转文件路径
-            QFileInfo fileInfo(filePath);
-            QString suffix = fileInfo.suffix().toLower();
-            if(!fileInfo.exists() || !fileInfo.isFile()) break; // 文件不存在或不是普通文件
-            
-            static const QStringList imageExtensions = { // 支持的图片扩展名列表
-                "png", "jpg", "jpeg", "bmp", "webp", "gif", "tiff"
-            };
-            if(!imageExtensions.contains(suffix)) break; // 扩展名不匹配
-            
-            QImage tmpImage;
-            if(!tmpImage.load(filePath)) break; // 加载失败
-            mainImage = tmpImage;
-        }
-        else break;
-        if(!mainImage.isNull()) mainTxt = ""; // 清空文本
-        hasImg = true;
-    } while (0);
-    if(!hasImg && clipboard->mimeData()->hasHtml()){ // 无图像 有富文本 测试代码!!!
-        mainTxt = clipboard->mimeData()->html();
-        if(!mainTxt.isEmpty()) mainImage = QImage(); // 清空图像
+    // 读取剪贴板
+    if(hasImage){ // 有图像
+        //printf("hasImage");
+        brdImage = clipboard->image();
+        if(brdImage.isNull()) hasImage = false;
     }
-    else if(!hasImg && clipboard->mimeData()->hasText()){ // 无图像 有文本
-        mainTxt = clipboard->text();
-        if(!mainTxt.isEmpty()) mainImage = QImage(); // 清空图像
+    if(hasUrls){ // 有路径
+        //printf("hasUrls");
+        QUrl url = clipboard->mimeData()->urls().at(0); // 只取第一个
+        QString filePath = url.toLocalFile(); // 转文件路径
+        QFileInfo fileInfo(filePath);
+        QString suffix = fileInfo.suffix().toLower();
+        
+        static const QStringList imageExtensions = { // 支持的图片扩展名列表
+            "png", "jpg", "jpeg", "bmp", "webp", "gif", "tiff"
+        };
+        
+        if(!(fileInfo.exists() && fileInfo.isFile() && // 文件存在 是普通文件
+        imageExtensions.contains(suffix) && urlImage.load(filePath) && // 扩展名合法 图片加载成功
+        !urlImage.isNull())){ // 图片非空
+            hasUrls = false; // 上述条件整体取反 即有一个不满足则置假
+        }
+    }
+    if(hasHtml){ // 有富文本
+        //printf("hasHtml");
+        html = clipboard->mimeData()->html();
+        if(html.isEmpty()) hasHtml = false;
+    }
+    if(hasText){ // 有纯文本
+        //printf("hasText");
+        text = clipboard->text();
+        if(text.isEmpty()) hasText = false;
+    }
+    
+    // 内容选取 测试代码!!!
+    if(hasImage || hasUrls){ // 有图像
+        mainTxt = ""; // 清空文本
+        if(hasImage) mainImage = brdImage;
+        else mainImage = urlImage;
+    }
+    else if(hasHtml || hasText){ // 有文本
+        mainImage = QImage(); // 清空图像
+        if(hasHtml) mainTxt = html;
+        else mainTxt = text;
+    }
+    else{ // 都没有
+        
     }
     
     // 显示
