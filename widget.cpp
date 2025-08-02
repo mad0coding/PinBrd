@@ -51,11 +51,11 @@ void Widget::setTop(uint8_t top) // 是否置顶
     Qt::WindowFlags flags = windowFlags();
     if(ifTop){
         flags |= Qt::WindowStaysOnTopHint;
-        this->setWindowTitle(Title + Version);
+        this->setWindowTitle(Title/* + Version*/);
     }
     else{
         flags &= ~Qt::WindowStaysOnTopHint;
-        this->setWindowTitle(title + Version);
+        this->setWindowTitle(title/* + Version*/);
     }
 
     hide(); // 先隐藏
@@ -188,6 +188,9 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
     
     // 快捷键处理
     switch (keyValue) { // 键值
+    case kv_H: // 边框
+        if(ctrl) QMessageBox::information(this, Title + " " + Version + " - Help", HelpStr);
+        break;
     case kv_B: // 边框
         setTitleBarVisible(0xFF); // 切换边框显示
         break;

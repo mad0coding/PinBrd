@@ -18,6 +18,7 @@
 #include <QScreen>
 #include <QFileInfo>
 #include <QScrollBar>
+#include <QMessageBox>
 
 
 
@@ -97,7 +98,22 @@ public:
     explicit Widget(QWidget *parent = 0);
     ~Widget();
     
-    QString Title = "PinBrd", title = "pinBrd", Version = "V0.6"; // 标题名称和版本
+    QString Title = "PinBrd", title = "pinBrd", Version = "V0.6.0"; // 标题名称和版本
+    QString HelpStr = "键鼠操作:\n"
+                        "Ctrl+H		Help	帮助\n"
+                        "B		Border	边框\n"
+                        "F		Fit	尺寸自适应\n"
+                        "Ctrl+F		Fit	尺寸自适应 无轮廓\n"
+                        "N		New	打开新进程\n"
+                        "T		Top	切换置顶\n"
+                        "Ctrl+V			粘贴\n"
+                        "Esc		Escape	退出\n"
+                        "Ctrl+Q		Quit	退出\n"
+                        "中键点击			退出\n"
+                        "右键点击			最小化\n"
+                        "左键拖动			拖动图片\n"
+                        "上下键/滚轮		缩放图片\n"
+                        "左右键/Ctrl+滚轮		调整不透明度";
     
 private:
     QLabel *lb_main = NULL; // 显示图像

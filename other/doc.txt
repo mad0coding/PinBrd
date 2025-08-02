@@ -1,6 +1,7 @@
 
 
-键鼠操作：
+键鼠操作:
+Ctrl+H		Help	帮助
 B		Border	边框
 F		Fit	尺寸自适应
 Ctrl+F		Fit	尺寸自适应 无轮廓
