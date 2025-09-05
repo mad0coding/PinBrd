@@ -178,6 +178,15 @@ uint8_t Widget::key_to_USB(int key, int Vkey) // QT键值转USB键值
     return 0;
 }
 
+uint8_t Widget::allowAutoRepeat(uint8_t keyValue) // 是否允许自动重复触发
+{
+    const uint8_t allowAutoRepeatList[] = {kv_left, kv_right, kv_up, kv_down}; // 允许自动重发触发列表
+    for(int i = 0; i < sizeof(allowAutoRepeatList); i++){
+        if(keyValue == allowAutoRepeatList[i]) return 1;
+    }
+    return 0;
+}
+
 void Widget::keyHandle(uint8_t keyValue) // 按键处理
 {
     //printf("0x%02X  %d  %d\n", func, keyValue, ifPress);
@@ -221,8 +230,9 @@ void Widget::keyHandle(uint8_t keyValue) // 按键处理
         break;
     case kv_up:
     case kv_down: // 缩放
-        dir = (keyValue == kv_up ? 1 : -1); // 向上为正
-        break;
+        keyValue = (keyValue == kv_up ? kv_wheel_down : kv_wheel_up); // 向上为正
+//        dir = (keyValue == kv_up ? 1 : -1); // 向上为正
+//        break;
     case kv_wheel_down:
     case kv_wheel_up: // 不透明度/缩放
         dir = (keyValue == kv_wheel_up ? 1 : -1); // 向上为正
@@ -264,11 +274,12 @@ void Widget::keyPressEvent(QKeyEvent *event) // 按键按下
         func = 0;
         return; // 舍弃键值直接返回
     }
-    if(event->isAutoRepeat()) return;//若为自动重复触发或正在发送数据则返回
-    int key1 = event->key();//读取第一种键值
-    int key2 = event->nativeVirtualKey();//读取第二种键值
     
+    int key1 = event->key(); // 读取第一种键值
+    int key2 = event->nativeVirtualKey(); // 读取第二种键值
     uint8_t keyValue = key_to_USB(key1, key2); // 映射到USB键值
+    
+    if(event->isAutoRepeat() && !allowAutoRepeat(keyValue)) return; // 若为不允许的自动重发触发则返回
     
     if(keyValue >= 249 && keyValue <= 252) func |= 0x01 << (keyValue - 249);
     else keyHandle(keyValue);
@@ -276,11 +287,11 @@ void Widget::keyPressEvent(QKeyEvent *event) // 按键按下
 
 void Widget::keyReleaseEvent(QKeyEvent *event) // 按键抬起
 {
-    if(event->isAutoRepeat()) return;//若为自动重复触发或正在发送数据则返回
-    int key1 = event->key();//读取第一种键值
-    int key2 = event->nativeVirtualKey();//读取第二种键值
+    int key1 = event->key(); // 读取第一种键值
+    int key2 = event->nativeVirtualKey(); // 读取第二种键值
+    uint8_t keyValue = key_to_USB(key1, key2); // 映射到USB键值
     
-    uint8_t keyValue = key_to_USB(key1, key2);//映射到USB键值
+    if(event->isAutoRepeat() && !allowAutoRepeat(keyValue)) return; // 若为不允许的自动重发触发则返回
     
     if(keyValue >= 249 && keyValue <= 252) func &= ~(0x01 << (keyValue - 249));
 }

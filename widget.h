@@ -98,7 +98,7 @@ public:
     explicit Widget(QWidget *parent = 0);
     ~Widget();
     
-    QString Title = "PinBrd", title = "pinBrd", Version = "V0.6.0"; // 标题名称和版本
+    QString Title = "PinBrd", title = "pinBrd", Version = "V0.6.1"; // 标题名称和版本
     QString HelpStr = "键鼠操作:\n"
                         "Ctrl+H		Help	帮助\n"
                         "B		Border	边框\n"
@@ -134,6 +134,7 @@ private:
     void setTop(uint8_t top); // 是否置顶
     void setTitleBarVisible(uint8_t title); // 控制标题栏显示
     uint8_t key_to_USB(int key, int Vkey); // QT键值转USB键值
+    uint8_t allowAutoRepeat(uint8_t keyValue); // 是否允许自动重复触发
     
     void clipboardPaste(); // 从剪贴板粘贴内容
     
